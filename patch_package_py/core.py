@@ -190,8 +190,9 @@ def commit_changes(package_name: str, version: str, site_packages_path: Path) ->
     with open(patch_file_path, "w") as f:
         f.write(diff_content)
 
+    current_site_packages = find_site_packages(Path.cwd() / ".venv")
     try:
-        apply_patch(patch_file_path, site_packages_path)
+        apply_patch(patch_file_path, current_site_packages)
     except subprocess.CalledProcessError:
         logger.error(
             f"Error: failed to apply the patch after creation. There's maybe a conflict, you can try to reinstall the package and apply the patch manually via `{CLI_NAME} apply {patch_file_name}`"
