@@ -32,6 +32,11 @@ class Resolver:
         self, venv: Path, package_name: str
     ) -> tuple[PurePosixPath, str] | None:
         site_packages_path = find_site_packages(venv)
+        return self.resolve_in_site_packages(site_packages_path, package_name)
+
+    def resolve_in_site_packages(
+        self, site_packages_path: Path, package_name: str
+    ) -> tuple[PurePosixPath, str] | None:
         dist_info = list(
             site_packages_path.glob(f"{package_name.replace('-', '_')}-*.dist-info")
         )
@@ -90,12 +95,10 @@ def prepare_patch_workspace(
     venv_path = temp_dir / "venv"
 
     # Create venv with uv using current Python version
-    subprocess.run(
-        ["uv", "venv", str(venv_path), "--python", sys.executable], check=True
-    )
+    subprocess.check_call(["uv", "venv", str(venv_path), "--python", sys.executable])
 
     # Install the package without dependencies using uv
-    subprocess.run(
+    subprocess.check_call(
         [
             "uv",
             "pip",
@@ -107,7 +110,6 @@ def prepare_patch_workspace(
                 venv_path / ("Scripts/python.exe" if os.name == "nt" else "bin/python")
             ),
         ],
-        check=True,
         cwd=temp_dir,
     )
 
@@ -145,14 +147,19 @@ def prepare_patch_workspace(
             f,
             indent=2,
         )
-    subprocess.run(["git", "init"], cwd=git_path, check=True, capture_output=True)
-    subprocess.run(
+    subprocess.check_call(
+        ["git", "init"],
+        cwd=git_path,
+        stderr=subprocess.DEVNULL,
+        stdout=subprocess.DEVNULL,
+    )
+    subprocess.check_call(
         ["git", "add", "."],
         cwd=git_path,
-        check=True,
-        capture_output=True,
+        stderr=subprocess.DEVNULL,
+        stdout=subprocess.DEVNULL,
     )
-    subprocess.run(
+    subprocess.check_call(
         [
             "git",
             "commit",
@@ -161,8 +168,8 @@ def prepare_patch_workspace(
             f"Initial commit of {package_name}=={version}",
         ],
         cwd=git_path,
-        check=True,
-        capture_output=True,
+        stderr=subprocess.DEVNULL,
+        stdout=subprocess.DEVNULL,
     )
 
     logger.info(
@@ -171,15 +178,12 @@ def prepare_patch_workspace(
 
 
 def commit_changes(package_name: str, version: str, site_packages_path: Path) -> None:
-    diff_proc = subprocess.run(
+    diff_content = subprocess.check_output(
         ["git", "diff", "--relative"],
         cwd=site_packages_path,
-        check=True,
-        capture_output=True,
         text=True,
     )
 
-    diff_content = diff_proc.stdout
     if not diff_content:
         logger.info("No changes detected, nothing to commit.")
         return
@@ -202,9 +206,33 @@ def commit_changes(package_name: str, version: str, site_packages_path: Path) ->
 
 
 def apply_patch(patch_file: Path, site_packages_dir: Path) -> None:
+    # Parse package name and version from patch file name
+    patch_name = patch_file.stem  # Remove .patch extension
+    if "+" not in patch_name:
+        raise ValueError(
+            f"Invalid patch file name format: {patch_file.name}. Expected format: package_name+version.patch"
+        )
+
+    package_name, version = patch_name.rsplit("+", 1)
+
+    # Verify the package exists in site_packages_dir with matching version
+    resolver = Resolver()
+    result = resolver.resolve_in_site_packages(site_packages_dir, package_name)
+    if result is None:
+        logger.warning(
+            f"Package '{package_name}' not found in site-packages directory, skipping..."
+        )
+        return
+
+    _, installed_version = result
+    if installed_version != version:
+        raise ValueError(
+            f"Version mismatch: patch is for {package_name}=={version} but installed version is {installed_version}"
+        )
+
     # First, check if the patch is already applied using dry-run
     try:
-        subprocess.run(
+        subprocess.check_call(
             [
                 "patch",
                 "-p1",
@@ -215,17 +243,17 @@ def apply_patch(patch_file: Path, site_packages_dir: Path) -> None:
                 str(patch_file.absolute()),
             ],
             cwd=site_packages_dir,
-            check=True,
-            capture_output=True,
+            stderr=subprocess.DEVNULL,
+            stdout=subprocess.DEVNULL,
         )
     except subprocess.CalledProcessError:
         logger.warning(
-            f"Patch `{patch_file.stem}` appears to be already applied, skipping...",
+            f"Patch `{patch_name}` appears to be already applied, skipping...",
         )
         return
 
     # If dry-run succeeds, apply the patch for real
-    subprocess.run(
+    subprocess.check_call(
         [
             "patch",
             "-p1",
@@ -235,5 +263,4 @@ def apply_patch(patch_file: Path, site_packages_dir: Path) -> None:
             str(patch_file.absolute()),
         ],
         cwd=site_packages_dir,
-        check=True,
     )

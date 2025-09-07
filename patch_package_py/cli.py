@@ -62,10 +62,7 @@ def cmd_apply(args):
     site_packages_dir = find_site_packages(Path.cwd() / ".venv")
 
     if not patches_dir.exists():
-        logger.error(
-            f"Error: Patches directory {patches_dir} does not exist",
-        )
-        sys.exit(1)
+        return
 
     if not site_packages_dir.exists():
         logger.error(
@@ -79,15 +76,8 @@ def cmd_apply(args):
         logger.info(f"No patch files found in {patches_dir}")
         return
 
-    success_count = 0
     for patch_file in patch_files:
-        try:
-            apply_patch(patch_file, site_packages_dir)
-            success_count += 1
-        except Exception as e:
-            logger.error(f"✗ Failed to apply {patch_file.name}: {e}")
-
-    logger.info(f"Applied {success_count}/{len(patch_files)} patches successfully")
+        apply_patch(patch_file, site_packages_dir)
 
 
 def cli():
