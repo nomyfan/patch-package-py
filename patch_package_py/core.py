@@ -209,9 +209,10 @@ def apply_patch(patch_file: Path, site_packages_dir: Path) -> None:
     # Parse package name and version from patch file name
     patch_name = patch_file.stem  # Remove .patch extension
     if "+" not in patch_name:
-        raise ValueError(
-            f"Invalid patch file name format: {patch_file.name}. Expected format: package_name+version.patch"
+        logger.warning(
+            f"Invalid patch file name format: {patch_file.name}. Expected format: package_name+version.patch, skipping..."
         )
+        return
 
     package_name, version = patch_name.rsplit("+", 1)
 
