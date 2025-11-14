@@ -20,7 +20,8 @@ p12y patch <package_name>
 
 This command:
 
-- Resolves the package from your current virtual environment (`.venv`)
+- Resolves the package from an environment path
+  - if omitted, it detects from the current directory (`/.venv`)
 - Creates a temporary virtual environment
 - Installs the same version of the package without dependencies
 - Sets up a git repository for tracking changes
@@ -29,7 +30,7 @@ This command:
 Example:
 
 ```bash
-p12y patch requests
+p12y patch requests [-e <environment-path>]
 ```
 
 ### 2. Commit changes and create patch file
@@ -53,13 +54,14 @@ p12y commit /tmp/patch-requests-2.28.1-abc123/venv/lib/python3.11/site-packages/
 ### 3. Apply patches
 
 ```bash
-p12y apply
+p12y apply [-e <environment-path>]
 ```
 
 This command:
 
 - Looks for `.patch` files in the `patches/` directory
-- Applies them to the packages in your current virtual environment (`.venv`)
+- Applies them to the packages in the environment path
+  - if omitted, it detects from the current directory (`/.venv`)
 - Reports success/failure for each patch
 
 ## Workflow
@@ -76,12 +78,21 @@ This command:
 - Stores patch files in a `patches/` directory in your project root
 - Patch files are named using the format: `<package-name>+<version>.patch`
 
+## Using with poetry
+
+- detect the environment path using `poetry show -v`
+- use the -e / --env-path option for patch and/or apply.
+
 ## Requirements
 
 - Python ≥ 3.9
 - `uv` package manager
 - `git` version control system
 - `patch` utility (typically pre-installed on Unix-like systems)
+  - for windows you can install
+    - using chocolatey: `choco install patch`
+    - using winget `winget install --id=GnuWin32.Patch  -e`
+    - or it might be packed with cygwin.
 
 ## License
 
