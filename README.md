@@ -91,7 +91,7 @@ This command:
 - `patch` utility (typically pre-installed on Unix-like systems)
   - for windows you can install
     - using chocolatey: `choco install patch`
-    - using winget `winget install --id=GnuWin32.Patch  -e`
+    - using winget `winget install --id=GnuWin32.Patch -e`
     - or it might be packed with cygwin.
 
 ## License
