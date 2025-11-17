@@ -1,17 +1,18 @@
 import argparse
-import sys
-from pathlib import Path
-from patch_package_py import (
-    prepare_patch_workspace,
-    commit_changes,
-    apply_patch,
-    Resolver,
-    find_site_packages,
-    PATCH_INFO_FILE,
-    CLI_NAME,
-)
-from logging import getLogger
 import logging
+import sys
+from logging import getLogger
+from pathlib import Path
+
+from patch_package_py import (
+    CLI_NAME,
+    PATCH_INFO_FILE,
+    Resolver,
+    apply_patch,
+    commit_changes,
+    find_site_packages,
+    prepare_patch_workspace,
+)
 
 logger = getLogger(__name__)
 logging.basicConfig(level=logging.INFO, format="%(message)s")
@@ -20,7 +21,14 @@ logging.basicConfig(level=logging.INFO, format="%(message)s")
 def cmd_patch(args):
     package_name = args.package
     resolver = Resolver()
-    package = resolver.resolve_in_venv(Path.cwd() / ".venv", package_name)
+
+    env_path = (
+        Path(args.env_path)
+        if args.env_path is not None
+        else Path.cwd() / ".venv"
+    )
+
+    package = resolver.resolve_in_venv(env_path, package_name)
     if not package:
         logger.error(
             "Error: No package found",
@@ -59,7 +67,13 @@ def cmd_commit(args):
 
 def cmd_apply(args):
     patches_dir = Path.cwd() / "patches"
-    site_packages_dir = find_site_packages(Path.cwd() / ".venv")
+
+    env_path = (
+        Path(args.env_path)
+        if args.env_path is not None
+        else Path.cwd() / ".venv"
+    )
+    site_packages_dir = find_site_packages(env_path)
 
     if not patches_dir.exists():
         return
@@ -85,24 +99,30 @@ def cli():
         prog=CLI_NAME, description="A Python package patching tool"
     )
 
-    subparsers = parser.add_subparsers(dest="command", help="Available commands")
+    subparsers = parser.add_subparsers(
+        dest="command", help="Available commands"
+    )
 
     # patch command
     workspace_parser = subparsers.add_parser(
         "patch", help="Prepare for patching a package"
     )
     workspace_parser.add_argument("package", help="Package name")
+    workspace_parser.add_argument("-e", "--env-path", help="Environment Path")
     workspace_parser.set_defaults(func=cmd_patch)
 
     # commit command
     commit_parser = subparsers.add_parser(
         "commit", help="Commit changes and create a patch file"
     )
-    commit_parser.add_argument("path", help="Edit patch given by `patch` command")
+    commit_parser.add_argument(
+        "path", help="Edit patch given by `patch` command"
+    )
     commit_parser.set_defaults(func=cmd_commit)
 
     # apply command
     apply_parser = subparsers.add_parser("apply", help="Apply patches")
+    apply_parser.add_argument("-e", "--env-path", help="Environment Path")
     apply_parser.set_defaults(func=cmd_apply)
 
     args = parser.parse_args()
