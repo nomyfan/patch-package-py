@@ -4,7 +4,7 @@ import sys
 from logging import getLogger
 from pathlib import Path
 
-from patch_package_py import (
+from patch_package_py.core import (
     CLI_NAME,
     PATCH_INFO_FILE,
     Resolver,
