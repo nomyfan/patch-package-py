@@ -32,3 +32,18 @@ build-backend = "hatchling.build"
 
 [dependency-groups]
 dev = ["pyright>=1.1.405", "ruff>=0.12.12"]
+
+[tool.ruff]
+target-version = "py39"
+line-length = 88
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "SIM"]
+ignore = ["E501"]
+
+[tool.ruff.format]
+quote-style = "double"
+
+[tool.pyright]
+pythonVersion = "3.9"
+include = ["patch_package_py"]

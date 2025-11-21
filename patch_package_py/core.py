@@ -1,10 +1,11 @@
-from pathlib import Path, PurePosixPath
-import tempfile
 import os
+import posixpath
 import subprocess
 import sys
+import tempfile
 from logging import getLogger
-import posixpath
+from pathlib import Path, PurePosixPath
+from typing import Union
 
 logger = getLogger(__name__)
 
@@ -30,13 +31,13 @@ def find_site_packages(venv: Path) -> Path:
 class Resolver:
     def resolve_in_venv(
         self, venv: Path, package_name: str
-    ) -> tuple[PurePosixPath, str] | None:
+    ) -> Union[tuple[PurePosixPath, str], None]:
         site_packages_path = find_site_packages(venv)
         return self.resolve_in_site_packages(site_packages_path, package_name)
 
     def resolve_in_site_packages(
         self, site_packages_path: Path, package_name: str
-    ) -> tuple[PurePosixPath, str] | None:
+    ) -> Union[tuple[PurePosixPath, str], None]:
         dist_info = list(
             site_packages_path.glob(f"{package_name.replace('-', '_')}-*.dist-info")
         )
