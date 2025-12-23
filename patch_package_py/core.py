@@ -155,6 +155,13 @@ def prepare_patch_workspace(
         stdout=subprocess.DEVNULL,
     )
     subprocess.check_call(
+        ["git", "config", "user.name", "patch-package-py"], cwd=git_path
+    )
+    subprocess.check_call(
+        ["git", "config", "user.email", "noreply@patch-package-py.local"],
+        cwd=git_path,
+    )
+    subprocess.check_call(
         ["git", "add", "."],
         cwd=git_path,
         stderr=subprocess.DEVNULL,
