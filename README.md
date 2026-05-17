@@ -8,6 +8,12 @@ A Python package patching tool that allows you to make and apply patches to thir
 uv add patch-package-py
 ```
 
+## Agent skill
+
+This repository includes an
+[agent skill](skills/patch-package-py/) for AI agents that support agent
+skills.
+
 ## Usage
 
 The tool provides three main commands via the `p12y` CLI:
