@@ -117,6 +117,7 @@ def prepare_patch_workspace(
             "pip",
             "install",
             "--no-deps",
+            "--link-mode=copy",
             f"{package_name}=={version}",
             "--python",
             str(
