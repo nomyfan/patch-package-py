@@ -100,8 +100,16 @@ def cmd_apply(args):
 
 
 def cli():
+    from importlib.metadata import version
+
     parser = argparse.ArgumentParser(
         prog=CLI_NAME, description="A Python package patching tool"
+    )
+    parser.add_argument(
+        "-V",
+        "--version",
+        action="version",
+        version=f"patch-package-py {version('patch-package-py')}",
     )
 
     subparsers = parser.add_subparsers(dest="command", help="Available commands")
