@@ -33,7 +33,7 @@ def cmd_patch(args):
         )
         sys.exit(1)
     module_path, version = package
-    prepare_patch_workspace(module_path, package_name, version)
+    prepare_patch_workspace(module_path, package_name, version, env_path)
 
 
 def cmd_commit(args):
@@ -57,7 +57,14 @@ def cmd_commit(args):
 
         info = json.load(f)
     site_packages_dir = Path(info["site_packages_path"])
-    commit_changes(info["package_name"], info["version"], site_packages_dir)
+    target_env_path = Path(info["target_env_path"])
+    commit_changes(
+        info["package_name"],
+        info["version"],
+        site_packages_dir,
+        target_env_path,
+        restore_target_package=not args.skip_restore,
+    )
     import shutil
 
     shutil.rmtree(info["temp_dir"])
@@ -110,6 +117,11 @@ def cli():
         "commit", help="Commit changes and create a patch file"
     )
     commit_parser.add_argument("path", help="Edit patch given by `patch` command")
+    commit_parser.add_argument(
+        "--skip-restore",
+        action="store_true",
+        help="Skip reinstalling the target package before applying the new patch",
+    )
     commit_parser.set_defaults(func=cmd_commit)
 
     # apply command

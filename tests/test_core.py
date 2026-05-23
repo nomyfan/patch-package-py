@@ -9,6 +9,7 @@ from patch_package_py.core import (
     apply_patch,
     commit_changes,
     find_site_packages,
+    restore_clean_package,
 )
 
 
@@ -210,15 +211,29 @@ class TestApplyPatch:
 class TestCommitChanges:
     """Tests for creating patch files via commit_changes."""
 
+    def _setup_target_env(
+        self, tmp_path: Path, package_name: str, version: str
+    ) -> Path:
+        target_env = tmp_path / ".venv"
+        site_packages = target_env / "lib" / "python3.9" / "site-packages"
+        site_packages.mkdir(parents=True)
+        dist_info = (
+            site_packages / f"{package_name.replace('-', '_')}-{version}.dist-info"
+        )
+        dist_info.mkdir()
+        (dist_info / "RECORD").write_text(f"{package_name}/__init__.py,,\n")
+        return target_env
+
     def test_commit_no_changes(self, tmp_path: Path, caplog, monkeypatch):
         """Test that no patch is created when there are no changes."""
         import logging
 
         caplog.set_level(logging.INFO)
         monkeypatch.chdir(tmp_path)
+        target_env = tmp_path / ".venv"
 
         with patch("subprocess.check_output", return_value=""):
-            commit_changes("mypackage", "1.0.0", tmp_path)
+            commit_changes("mypackage", "1.0.0", tmp_path, target_env)
 
         assert "No changes detected" in caplog.text
         assert not (tmp_path / "patches").exists()
@@ -227,12 +242,7 @@ class TestCommitChanges:
         """Test that patch file is created with correct name and content."""
         monkeypatch.chdir(tmp_path)
 
-        # Create .venv structure for find_site_packages
-        site_packages = tmp_path / ".venv" / "lib" / "python3.9" / "site-packages"
-        site_packages.mkdir(parents=True)
-        dist_info = site_packages / "mypackage-1.0.0.dist-info"
-        dist_info.mkdir()
-        (dist_info / "RECORD").write_text("mypackage/__init__.py,,\n")
+        target_env = self._setup_target_env(tmp_path, "mypackage", "1.0.0")
 
         diff_content = (
             "--- a/mypackage/core.py\n"
@@ -246,7 +256,7 @@ class TestCommitChanges:
             patch("subprocess.check_output", return_value=diff_content),
             patch("subprocess.check_call"),  # mock patch command
         ):
-            commit_changes("mypackage", "1.0.0", tmp_path)
+            commit_changes("mypackage", "1.0.0", tmp_path, target_env)
 
         patch_file = tmp_path / "patches" / "mypackage+1.0.0.patch"
         assert patch_file.exists()
@@ -256,16 +266,78 @@ class TestCommitChanges:
         """Test patch file naming with package name and version."""
         monkeypatch.chdir(tmp_path)
 
-        site_packages = tmp_path / ".venv" / "lib" / "python3.9" / "site-packages"
-        site_packages.mkdir(parents=True)
-        dist_info = site_packages / "my_package-2.5.0.dist-info"
-        dist_info.mkdir()
-        (dist_info / "RECORD").write_text("my_package/__init__.py,,\n")
+        target_env = self._setup_target_env(tmp_path, "my-package", "2.5.0")
 
         with (
             patch("subprocess.check_output", return_value="some diff"),
             patch("subprocess.check_call"),
         ):
-            commit_changes("my-package", "2.5.0", tmp_path)
+            commit_changes("my-package", "2.5.0", tmp_path, target_env)
 
         assert (tmp_path / "patches" / "my-package+2.5.0.patch").exists()
+
+    def test_commit_restores_target_package_before_apply(
+        self, tmp_path: Path, monkeypatch
+    ):
+        """Test that commit restores the target package before applying the patch."""
+        monkeypatch.chdir(tmp_path)
+        target_env = self._setup_target_env(tmp_path, "mypackage", "1.0.0")
+
+        with (
+            patch("subprocess.check_output", return_value="some diff"),
+            patch("subprocess.check_call") as mock_check_call,
+        ):
+            commit_changes("mypackage", "1.0.0", tmp_path, target_env)
+
+        first_command = mock_check_call.call_args_list[0].args[0]
+        assert first_command == [
+            "uv",
+            "pip",
+            "install",
+            "--force-reinstall",
+            "--no-deps",
+            "mypackage==1.0.0",
+            "--python",
+            str(target_env / "bin/python"),
+        ]
+
+    def test_commit_can_skip_restore(self, tmp_path: Path, monkeypatch):
+        """Test that commit can apply the patch without restoring first."""
+        monkeypatch.chdir(tmp_path)
+        target_env = self._setup_target_env(tmp_path, "mypackage", "1.0.0")
+
+        with (
+            patch("subprocess.check_output", return_value="some diff"),
+            patch("subprocess.check_call") as mock_check_call,
+        ):
+            commit_changes(
+                "mypackage",
+                "1.0.0",
+                tmp_path,
+                target_env,
+                restore_target_package=False,
+            )
+
+        commands = [call_args.args[0] for call_args in mock_check_call.call_args_list]
+        assert all(command[0] == "patch" for command in commands)
+
+
+class TestRestoreCleanPackage:
+    def test_restore_clean_package_uses_target_env_python(self, tmp_path: Path):
+        target_env = tmp_path / ".venv"
+
+        with patch("subprocess.check_call") as mock_check_call:
+            restore_clean_package("mypackage", "1.0.0", target_env)
+
+        mock_check_call.assert_called_once_with(
+            [
+                "uv",
+                "pip",
+                "install",
+                "--force-reinstall",
+                "--no-deps",
+                "mypackage==1.0.0",
+                "--python",
+                str(target_env / "bin/python"),
+            ]
+        )

@@ -15,7 +15,7 @@ The CLI has three commands:
 
 ```bash
 p12y patch <package> [-e <env-path>]
-p12y commit <edit-path>
+p12y commit <edit-path> [--skip-restore]
 p12y apply [-e <env-path>]
 ```
 
@@ -91,6 +91,11 @@ Use this sequence when guiding a user through patching a package:
    uv run p12y commit <edit-path>
    ```
 
+   `commit` writes the patch file, reinstalls the original package in the
+   environment selected during `patch`, then applies the new patch. Use
+   `--skip-restore` when the target environment is already prepared for direct
+   patch application.
+
 6. Apply all patch files in `patches/` to the selected environment:
 
    ```bash
@@ -117,7 +122,7 @@ uv run p12y apply -e <env-path>
 
 Run `uv run p12y commit <edit-path>` from the project root so the patch file lands in that project's `patches/` directory.
 
-`p12y commit` writes `patches/<package-name>+<version>.patch` and validates the new patch against the project root's default `./.venv`. For custom `-e` workflows, keep a compatible default `.venv` available during commit.
+`p12y commit` writes `patches/<package-name>+<version>.patch`, restores the package in the environment recorded by `p12y patch`, and applies the new patch there. With `p12y patch <package> -e <env-path>`, `commit` reuses that same environment path.
 
 ## Troubleshooting
 

@@ -42,20 +42,24 @@ p12y patch requests [-e <environment-path>]
 ### 2. Commit changes and create patch file
 
 ```bash
-p12y commit <edit_path>
+p12y commit <edit_path> [--skip-restore]
 ```
 
 After editing the package files, use this command to:
 
 - Generate a git diff of your changes
 - Create a `.patch` file in the `patches/` directory
-- Test that the patch can be applied successfully
+- Reinstall the original package in the target environment
+- Apply the new patch to the target environment
 
 Example:
 
 ```bash
 p12y commit /tmp/patch-requests-2.28.1-abc123/venv/lib/python3.11/site-packages/requests
 ```
+
+Use `--skip-restore` to write the patch file and apply it to the current target
+environment directly.
 
 ### 3. Apply patches
 
@@ -81,13 +85,21 @@ This command:
 
 - Uses `uv` for fast virtual environment creation and package installation
 - Leverages git for tracking changes and generating diffs
+- Reinstalls the target package during `commit` before applying the newly generated patch
 - Stores patch files in a `patches/` directory in your project root
 - Patch files are named using the format: `<package-name>+<version>.patch`
 
-## Using with poetry
+## Using with Poetry
 
-- detect the environment path using `poetry show -v`
-- use the -e / --env-path option for patch and/or apply.
+- Detect the environment path using `poetry env info --path`.
+- Use the `-e` / `--env-path` option for `patch` and `apply`.
+- `commit` reuses the environment path recorded by `patch -e`.
+
+```bash
+p12y patch requests -e "$(poetry env info --path)"
+p12y commit <edit_path>
+p12y apply -e "$(poetry env info --path)"
+```
 
 ## Requirements
 

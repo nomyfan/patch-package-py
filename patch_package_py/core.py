@@ -90,7 +90,7 @@ class Resolver:
 
 
 def prepare_patch_workspace(
-    module_path: PurePosixPath, package_name: str, version: str
+    module_path: PurePosixPath, package_name: str, version: str, target_env_path: Path
 ):
     temp_dir = Path(tempfile.mkdtemp(prefix=f"patch-{package_name}-{version}-"))
     venv_path = temp_dir / "venv"
@@ -144,6 +144,7 @@ def prepare_patch_workspace(
                 "site_packages_path": str(site_packages_path.absolute()),
                 "package_name": package_name,
                 "version": version,
+                "target_env_path": str(target_env_path.absolute()),
             },
             f,
             indent=2,
@@ -185,7 +186,32 @@ def prepare_patch_workspace(
     )
 
 
-def commit_changes(package_name: str, version: str, site_packages_path: Path) -> None:
+def venv_python(venv_path: Path) -> Path:
+    return venv_path / ("Scripts/python.exe" if os.name == "nt" else "bin/python")
+
+
+def restore_clean_package(package_name: str, version: str, env_path: Path) -> None:
+    subprocess.check_call(
+        [
+            "uv",
+            "pip",
+            "install",
+            "--force-reinstall",
+            "--no-deps",
+            f"{package_name}=={version}",
+            "--python",
+            str(venv_python(env_path)),
+        ]
+    )
+
+
+def commit_changes(
+    package_name: str,
+    version: str,
+    site_packages_path: Path,
+    target_env_path: Path,
+    restore_target_package: bool = True,
+) -> None:
     diff_content = subprocess.check_output(
         ["git", "diff", "--relative"],
         cwd=site_packages_path,
@@ -202,13 +228,26 @@ def commit_changes(package_name: str, version: str, site_packages_path: Path) ->
     with open(patch_file_path, "w") as f:
         f.write(diff_content)
 
-    current_site_packages = find_site_packages(Path.cwd() / ".venv")
+    if restore_target_package:
+        restore_clean_package(package_name, version, target_env_path)
+
+    current_site_packages = find_site_packages(target_env_path)
     try:
         apply_patch(patch_file_path, current_site_packages)
     except subprocess.CalledProcessError:
-        logger.error(
-            f"Error: failed to apply the patch after creation. There's maybe a conflict, you can try to reinstall the package and apply the patch manually via `{CLI_NAME} apply {patch_file_name}`"
-        )
+        msg = "Error: failed to apply the patch after creation."
+        if restore_target_package:
+            msg += (
+                " This may be caused by leftover files from a previous patch."
+                " Try manually removing them from the target environment"
+                f" and then run `{CLI_NAME} apply`."
+            )
+        else:
+            msg += (
+                " There's maybe a conflict, you can try to reinstall the package"
+                f" and apply the patch manually via `{CLI_NAME} apply`."
+            )
+        logger.error(msg)
         return
     logger.info(f"Patch created and applied for {package_name}=={version}")
 
