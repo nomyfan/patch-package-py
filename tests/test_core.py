@@ -1,3 +1,4 @@
+import os
 import subprocess
 from pathlib import Path, PurePosixPath
 from unittest.mock import patch
@@ -10,6 +11,7 @@ from patch_package_py.core import (
     commit_changes,
     find_site_packages,
     restore_clean_package,
+    venv_python,
 )
 
 
@@ -215,7 +217,10 @@ class TestCommitChanges:
         self, tmp_path: Path, package_name: str, version: str
     ) -> Path:
         target_env = tmp_path / ".venv"
-        site_packages = target_env / "lib" / "python3.9" / "site-packages"
+        if os.name == "nt":
+            site_packages = target_env / "Lib" / "site-packages"
+        else:
+            site_packages = target_env / "lib" / "python3.9" / "site-packages"
         site_packages.mkdir(parents=True)
         dist_info = (
             site_packages / f"{package_name.replace('-', '_')}-{version}.dist-info"
@@ -298,7 +303,7 @@ class TestCommitChanges:
             "--no-deps",
             "mypackage==1.0.0",
             "--python",
-            str(target_env / "bin/python"),
+            str(venv_python(target_env)),
         ]
 
     def test_commit_can_skip_restore(self, tmp_path: Path, monkeypatch):
@@ -338,6 +343,6 @@ class TestRestoreCleanPackage:
                 "--no-deps",
                 "mypackage==1.0.0",
                 "--python",
-                str(target_env / "bin/python"),
+                str(venv_python(target_env)),
             ]
         )
