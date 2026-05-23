@@ -9,6 +9,7 @@ from patch_package_py.core import (
     Resolver,
     apply_patch,
     commit_changes,
+    find_existing_patch,
     find_site_packages,
     restore_clean_package,
     venv_python,
@@ -346,3 +347,29 @@ class TestRestoreCleanPackage:
                 str(venv_python(target_env)),
             ]
         )
+
+
+class TestFindExistingPatch:
+    def test_finds_existing_patch(self, tmp_path: Path, monkeypatch):
+        monkeypatch.chdir(tmp_path)
+        patches_dir = tmp_path / "patches"
+        patches_dir.mkdir()
+        patch_file = patches_dir / "mypackage+1.0.0.patch"
+        patch_file.write_text("some diff")
+
+        result = find_existing_patch("mypackage", "1.0.0")
+        assert result == patch_file
+
+    def test_returns_none_when_no_patch(self, tmp_path: Path, monkeypatch):
+        monkeypatch.chdir(tmp_path)
+        result = find_existing_patch("mypackage", "1.0.0")
+        assert result is None
+
+    def test_returns_none_for_different_version(self, tmp_path: Path, monkeypatch):
+        monkeypatch.chdir(tmp_path)
+        patches_dir = tmp_path / "patches"
+        patches_dir.mkdir()
+        (patches_dir / "mypackage+2.0.0.patch").write_text("some diff")
+
+        result = find_existing_patch("mypackage", "1.0.0")
+        assert result is None
