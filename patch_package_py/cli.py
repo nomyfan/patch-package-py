@@ -33,7 +33,9 @@ def cmd_patch(args):
         )
         sys.exit(1)
     module_path, version = package
-    prepare_patch_workspace(module_path, package_name, version, env_path)
+    prepare_patch_workspace(
+        module_path, package_name, version, env_path, amend=args.amend
+    )
 
 
 def cmd_commit(args):
@@ -110,6 +112,11 @@ def cli():
     )
     workspace_parser.add_argument("package", help="Package name")
     workspace_parser.add_argument("-e", "--env-path", help="Environment Path")
+    workspace_parser.add_argument(
+        "--amend",
+        action="store_true",
+        help="Apply existing patch file to the workspace so you can continue editing",
+    )
     workspace_parser.set_defaults(func=cmd_patch)
 
     # commit command

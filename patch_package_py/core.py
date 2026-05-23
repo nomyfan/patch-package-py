@@ -89,8 +89,20 @@ class Resolver:
         return PurePosixPath(common_path_str)
 
 
+def find_existing_patch(package_name: str, version: str) -> Union[Path, None]:
+    patch_file = Path.cwd() / "patches" / f"{package_name}+{version}.patch"
+    if patch_file.exists():
+        return patch_file
+    return None
+
+
 def prepare_patch_workspace(
-    module_path: PurePosixPath, package_name: str, version: str, target_env_path: Path
+    module_path: PurePosixPath,
+    package_name: str,
+    version: str,
+    target_env_path: Path,
+    *,
+    amend: bool = False,
 ):
     temp_dir = Path(tempfile.mkdtemp(prefix=f"patch-{package_name}-{version}-"))
     venv_path = temp_dir / "venv"
@@ -180,6 +192,54 @@ def prepare_patch_workspace(
         stderr=subprocess.DEVNULL,
         stdout=subprocess.DEVNULL,
     )
+
+    if amend:
+        existing_patch = find_existing_patch(package_name, version)
+        if existing_patch:
+            logger.info(f"Applying existing patch: {existing_patch.name}")
+            patch_args = [
+                "patch",
+                "-p1",
+                "-N",
+                "--forward",
+                "-i",
+                str(existing_patch.absolute()),
+            ]
+            try:
+                # Validate before modifying the workspace; recovery below
+                # handles residue if the real apply still fails unexpectedly.
+                subprocess.check_call(
+                    [*patch_args, "--dry-run"],
+                    cwd=site_packages_path,
+                    stderr=subprocess.DEVNULL,
+                    stdout=subprocess.DEVNULL,
+                )
+                subprocess.check_call(
+                    patch_args,
+                    cwd=site_packages_path,
+                )
+            except subprocess.CalledProcessError:
+                logger.warning(
+                    "Failed to apply existing patch. Starting from clean state."
+                )
+                subprocess.check_call(
+                    ["git", "add", "."],
+                    cwd=git_path,
+                    stderr=subprocess.DEVNULL,
+                    stdout=subprocess.DEVNULL,
+                )
+                subprocess.check_call(
+                    ["git", "reset", "--hard", "HEAD"],
+                    cwd=git_path,
+                    stderr=subprocess.DEVNULL,
+                    stdout=subprocess.DEVNULL,
+                )
+                subprocess.check_call(
+                    ["git", "clean", "-fdX"],
+                    cwd=git_path,
+                    stderr=subprocess.DEVNULL,
+                    stdout=subprocess.DEVNULL,
+                )
 
     logger.info(
         f"You can now edit the package in: {edit_path}. When done, run `{CLI_NAME} commit {edit_path}` in this directory to create the patch file."
