@@ -14,7 +14,7 @@ compatibility: Requires Python >= 3.9, uv, git, and the patch utility. Windows u
 The CLI has three commands:
 
 ```bash
-p12y patch <package> [-e <env-path>]
+p12y patch <package> [-e <env-path>] [--amend]
 p12y commit <edit-path> [--skip-restore]
 p12y apply [-e <env-path>]
 ```
@@ -83,6 +83,14 @@ Use this sequence when guiding a user through patching a package:
    ```bash
    uv run p12y patch <package> -e <env-path>
    ```
+
+   To continue editing an existing patch rather than starting from a clean copy, add `--amend`:
+
+   ```bash
+   uv run p12y patch <package> --amend
+   ```
+
+   `--amend` applies the patch file from `patches/<package-name>+<version>.patch` (if it exists) onto the fresh workspace so your previous changes are already present when you open the editor. If the patch cannot be applied cleanly, `p12y` falls back to a clean workspace and logs a warning.
 
 4. Edit files inside the path printed by `p12y patch`.
 5. Commit the edited package copy from the project root:
