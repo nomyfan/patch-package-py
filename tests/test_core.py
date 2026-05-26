@@ -259,8 +259,6 @@ class TestApplyPatch:
         patch_file.write_text("some patch content")
         env_path = tmp_path / ".venv"
 
-        calls = [None]  # first call (restore) succeeds; second (dry-run) fails
-
         def side_effect(cmd, *args, **kwargs):
             if cmd[0] == "uv":
                 return None

@@ -31,9 +31,7 @@ def project(tmp_path, monkeypatch):
     monkeypatch.chdir(project_dir)
 
     target_env = project_dir / ".venv"
-    subprocess.check_call(
-        ["uv", "venv", str(target_env), "--python", sys.executable]
-    )
+    subprocess.check_call(["uv", "venv", str(target_env), "--python", sys.executable])
     subprocess.check_call(
         [
             "uv",
@@ -84,9 +82,7 @@ class TestCarryOverPatchE2E:
         # Workspace 2 with amend: should carry over the patch
         ws2 = tmp_path / "ws2"
         monkeypatch.setattr(tempfile, "mkdtemp", _make_mock_mkdtemp(ws2))
-        prepare_patch_workspace(
-            module_path, PACKAGE, version, target_env, amend=True
-        )
+        prepare_patch_workspace(module_path, PACKAGE, version, target_env, amend=True)
 
         ws2_sp = find_site_packages(ws2 / "venv")
         assert "# patched by e2e test" in (ws2_sp / "six.py").read_text()
@@ -148,9 +144,7 @@ class TestCarryOverPatchE2E:
 
         ws = tmp_path / "ws"
         monkeypatch.setattr(tempfile, "mkdtemp", _make_mock_mkdtemp(ws))
-        prepare_patch_workspace(
-            module_path, PACKAGE, version, target_env, amend=True
-        )
+        prepare_patch_workspace(module_path, PACKAGE, version, target_env, amend=True)
 
         ws_sp = find_site_packages(ws / "venv")
         git_path = ws_sp.parent
