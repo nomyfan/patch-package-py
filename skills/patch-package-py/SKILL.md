@@ -16,7 +16,7 @@ The CLI has three commands:
 ```bash
 p12y patch <package> [-e <env-path>] [--amend]
 p12y commit <edit-path> [--skip-restore]
-p12y apply [-e <env-path>]
+p12y apply [-e <env-path>] [--restore]
 ```
 
 ## CLI availability and uv-based workflow
@@ -99,10 +99,9 @@ Use this sequence when guiding a user through patching a package:
    uv run p12y commit <edit-path>
    ```
 
-   `commit` writes the patch file, reinstalls the original package in the
+   `commit` writes the patch file, restores the clean package in the
    environment selected during `patch`, then applies the new patch. Use
-   `--skip-restore` when the target environment is already prepared for direct
-   patch application.
+   `--skip-restore` when the target environment is already in a clean state.
 
 6. Apply all patch files in `patches/` to the selected environment:
 
@@ -114,6 +113,12 @@ Use this sequence when guiding a user through patching a package:
 
    ```bash
    uv run p12y apply -e <env-path>
+   ```
+
+   Use `--restore` to restore each package to its clean state before applying the patch. This is useful when the environment may already contain a previous version of the patch or manual edits:
+
+   ```bash
+   uv run p12y apply --restore
    ```
 
 7. Run a small import verification check for the patched behavior.
@@ -138,5 +143,5 @@ Run `uv run p12y commit <edit-path>` from the project root so the patch file lan
 - `Could not determine site-packages directory`: pass a virtual environment path that contains `Lib/site-packages` on Windows or `lib/python*/site-packages` on Unix-like systems.
 - `Version mismatch`: recreate the patch for the installed version, or install the package version named in the patch file.
 - `Invalid patch file name format`: use `patches/<package-name>+<version>.patch`.
-- `appears to be already applied`: the selected environment already contains the patch changes.
+- `appears to be already applied`: the selected environment already contains the patch changes. Run `uv run p12y apply --restore` to restore the clean package first and then re-apply.
 - `No changes detected`: edit files inside the path printed by `uv run p12y patch`, then rerun `uv run p12y commit <edit-path>`.
