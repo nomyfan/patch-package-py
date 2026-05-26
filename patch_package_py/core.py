@@ -330,11 +330,6 @@ def apply_patch(
 
     package_name, version = patch_name.rsplit("+", 1)
 
-    if restore:
-        if env_path is None:
-            raise ValueError("env_path is required when restore=True")
-        restore_clean_package(package_name, version, env_path)
-
     # Verify the package exists in site_packages_dir with matching version
     resolver = Resolver()
     result = resolver.resolve_in_site_packages(site_packages_dir, package_name)
@@ -349,6 +344,11 @@ def apply_patch(
         raise ValueError(
             f"Version mismatch: patch is for {package_name}=={version} but installed version is {installed_version}"
         )
+
+    if restore:
+        if env_path is None:
+            raise ValueError("env_path is required when restore=True")
+        restore_clean_package(package_name, version, env_path)
 
     # First, check if the patch is already applied using dry-run
     try:
