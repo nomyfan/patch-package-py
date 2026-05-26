@@ -210,37 +210,6 @@ class TestApplyPatch:
 
             assert "already applied" in caplog.text
 
-    def test_apply_patch_restore_calls_restore(self, tmp_path: Path):
-        """Test that restore=True calls restore_clean_package before patching."""
-        site_packages = self._setup_site_packages(tmp_path, "mypackage", "1.0.0")
-        patch_file = tmp_path / "mypackage+1.0.0.patch"
-        patch_file.write_text(
-            "--- a/mypackage/core.py\n"
-            "+++ b/mypackage/core.py\n"
-            "@@ -1,2 +1,2 @@\n"
-            " def hello():\n"
-            "-    return 'hello'\n"
-            "+    return 'hello world'\n"
-        )
-        env_path = tmp_path / ".venv"
-
-        with patch("subprocess.check_call") as mock_check_call:
-            apply_patch(patch_file, site_packages, env_path=env_path, restore=True)
-
-        commands = [call_args.args[0] for call_args in mock_check_call.call_args_list]
-        assert commands[0] == [
-            "uv",
-            "pip",
-            "install",
-            "--force-reinstall",
-            "--no-deps",
-            "mypackage==1.0.0",
-            "--python",
-            str(venv_python(env_path)),
-        ]
-        # dry-run + actual apply should follow
-        assert mock_check_call.call_count == 3
-
     def test_apply_patch_restore_requires_env_path(self, tmp_path: Path):
         """Test that restore=True without env_path raises ValueError."""
         site_packages = self._setup_site_packages(tmp_path, "mypackage", "1.0.0")

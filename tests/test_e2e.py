@@ -6,6 +6,7 @@ import pytest
 
 from patch_package_py.core import (
     Resolver,
+    apply_patch,
     commit_changes,
     find_site_packages,
     prepare_patch_workspace,
@@ -170,3 +171,34 @@ class TestCarryOverPatchE2E:
             text=True,
         )
         assert ignored == ""
+
+
+class TestRestoreApplyE2E:
+    def test_restore_reinstalls_then_applies_patch(self, tmp_path, monkeypatch, project):
+        """--restore should reinstall the package to a clean state, then apply the patch."""
+        module_path = project["module_path"]
+        version = project["version"]
+        target_env = project["target_env"]
+
+        # Create a patch via the normal workflow
+        ws = tmp_path / "ws"
+        monkeypatch.setattr(tempfile, "mkdtemp", _make_mock_mkdtemp(ws))
+        prepare_patch_workspace(module_path, PACKAGE, version, target_env)
+
+        ws_sp = find_site_packages(ws / "venv")
+        six_py = ws_sp / "six.py"
+        original = six_py.read_text()
+        six_py.write_text(original + "\n# restore-e2e-marker\n")
+
+        commit_changes(PACKAGE, version, ws_sp, target_env)
+
+        patch_file = project["dir"] / "patches" / f"{PACKAGE}+{version}.patch"
+        assert patch_file.exists()
+
+        # The patch is now applied in target_env. Apply again with --restore
+        # should succeed (reinstall cleans the already-patched state).
+        site_packages = find_site_packages(target_env)
+        apply_patch(patch_file, site_packages, env_path=target_env, restore=True)
+
+        patched_content = (site_packages / "six.py").read_text()
+        assert "# restore-e2e-marker" in patched_content
