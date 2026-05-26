@@ -268,6 +268,31 @@ class TestApplyPatch:
         ):
             apply_patch(patch_file, site_packages, env_path=env_path, restore=True)
 
+    def test_apply_patch_restore_real_apply_failure_raises(self, tmp_path: Path):
+        """Test that a real apply failure after successful dry-run raises RuntimeError."""
+        site_packages = self._setup_site_packages(tmp_path, "mypackage", "1.0.0")
+        patch_file = tmp_path / "mypackage+1.0.0.patch"
+        patch_file.write_text("some patch content")
+        env_path = tmp_path / ".venv"
+
+        call_count = 0
+
+        def side_effect(cmd, *args, **kwargs):
+            nonlocal call_count
+            call_count += 1
+            if cmd[0] == "uv":
+                return None
+            # First patch call (dry-run) succeeds, second (real apply) fails
+            if call_count == 3:
+                raise subprocess.CalledProcessError(1, "patch")
+            return None
+
+        with (
+            patch("subprocess.check_call", side_effect=side_effect),
+            pytest.raises(RuntimeError, match="Failed to apply patch"),
+        ):
+            apply_patch(patch_file, site_packages, env_path=env_path, restore=True)
+
 
 class TestCommitChanges:
     """Tests for creating patch files via commit_changes."""

@@ -377,14 +377,21 @@ def apply_patch(
         return
 
     # If dry-run succeeds, apply the patch for real
-    subprocess.check_call(
-        [
-            "patch",
-            "-p1",
-            "-N",
-            "--forward",
-            "-i",
-            str(patch_file.absolute()),
-        ],
-        cwd=site_packages_dir,
-    )
+    try:
+        subprocess.check_call(
+            [
+                "patch",
+                "-p1",
+                "-N",
+                "--forward",
+                "-i",
+                str(patch_file.absolute()),
+            ],
+            cwd=site_packages_dir,
+        )
+    except subprocess.CalledProcessError:
+        if restore:
+            raise RuntimeError(
+                f"Failed to apply patch `{patch_name}` after restoring clean package."
+            ) from None
+        raise
