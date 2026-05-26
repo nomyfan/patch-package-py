@@ -366,11 +366,11 @@ def apply_patch(
             stderr=subprocess.DEVNULL,
             stdout=subprocess.DEVNULL,
         )
-    except subprocess.CalledProcessError:
+    except subprocess.CalledProcessError as e:
         if restore:
             raise RuntimeError(
                 f"Failed to apply patch `{patch_name}` after restoring clean package."
-            ) from None
+            ) from e
         logger.warning(
             f"Patch `{patch_name}` appears to be already applied, skipping...",
         )
@@ -389,9 +389,9 @@ def apply_patch(
             ],
             cwd=site_packages_dir,
         )
-    except subprocess.CalledProcessError:
+    except subprocess.CalledProcessError as e:
         if restore:
             raise RuntimeError(
                 f"Failed to apply patch `{patch_name}` after restoring clean package."
-            ) from None
+            ) from e
         raise
