@@ -330,6 +330,11 @@ def apply_patch(
 
     package_name, version = patch_name.rsplit("+", 1)
 
+    if restore:
+        if env_path is None:
+            raise ValueError("env_path is required when restore=True")
+        restore_clean_package(package_name, version, env_path)
+
     # Verify the package exists in site_packages_dir with matching version
     resolver = Resolver()
     result = resolver.resolve_in_site_packages(site_packages_dir, package_name)
@@ -344,11 +349,6 @@ def apply_patch(
         raise ValueError(
             f"Version mismatch: patch is for {package_name}=={version} but installed version is {installed_version}"
         )
-
-    if restore:
-        if env_path is None:
-            raise ValueError("env_path is required when restore=True")
-        restore_clean_package(package_name, version, env_path)
 
     # First, check if the patch is already applied using dry-run
     try:
@@ -368,13 +368,12 @@ def apply_patch(
         )
     except subprocess.CalledProcessError:
         if restore:
-            logger.error(
-                f"Failed to apply patch `{patch_name}` after restoring clean package.",
-            )
-        else:
-            logger.warning(
-                f"Patch `{patch_name}` appears to be already applied, skipping...",
-            )
+            raise RuntimeError(
+                f"Failed to apply patch `{patch_name}` after restoring clean package."
+            ) from None
+        logger.warning(
+            f"Patch `{patch_name}` appears to be already applied, skipping...",
+        )
         return
 
     # If dry-run succeeds, apply the patch for real

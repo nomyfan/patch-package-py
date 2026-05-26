@@ -250,10 +250,8 @@ class TestApplyPatch:
         with pytest.raises(ValueError, match="env_path is required"):
             apply_patch(patch_file, site_packages, restore=True)
 
-    def test_apply_patch_restore_dry_run_failure_logs_error(
-        self, tmp_path: Path, caplog
-    ):
-        """Test that a broken patch after restore logs an error (not 'already applied')."""
+    def test_apply_patch_restore_dry_run_failure_raises(self, tmp_path: Path):
+        """Test that a broken patch after restore raises RuntimeError (non-zero exit)."""
         site_packages = self._setup_site_packages(tmp_path, "mypackage", "1.0.0")
         patch_file = tmp_path / "mypackage+1.0.0.patch"
         patch_file.write_text("some patch content")
@@ -264,11 +262,11 @@ class TestApplyPatch:
                 return None
             raise subprocess.CalledProcessError(1, "patch")
 
-        with patch("subprocess.check_call", side_effect=side_effect):
+        with (
+            patch("subprocess.check_call", side_effect=side_effect),
+            pytest.raises(RuntimeError, match="Failed to apply patch"),
+        ):
             apply_patch(patch_file, site_packages, env_path=env_path, restore=True)
-
-        assert "already applied" not in caplog.text
-        assert "Failed to apply patch" in caplog.text
 
 
 class TestCommitChanges:
