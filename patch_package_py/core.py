@@ -313,7 +313,13 @@ def commit_changes(
     logger.info(f"Patch created and applied for {package_name}=={version}")
 
 
-def apply_patch(patch_file: Path, site_packages_dir: Path) -> None:
+def apply_patch(
+    patch_file: Path,
+    site_packages_dir: Path,
+    *,
+    env_path: Union[Path, None] = None,
+    reinstall: bool = False,
+) -> None:
     # Parse package name and version from patch file name
     patch_name = patch_file.stem  # Remove .patch extension
     if "+" not in patch_name:
@@ -339,6 +345,11 @@ def apply_patch(patch_file: Path, site_packages_dir: Path) -> None:
             f"Version mismatch: patch is for {package_name}=={version} but installed version is {installed_version}"
         )
 
+    if reinstall:
+        if env_path is None:
+            raise ValueError("env_path is required when reinstall=True")
+        restore_clean_package(package_name, version, env_path)
+
     # First, check if the patch is already applied using dry-run
     try:
         subprocess.check_call(
@@ -356,9 +367,14 @@ def apply_patch(patch_file: Path, site_packages_dir: Path) -> None:
             stdout=subprocess.DEVNULL,
         )
     except subprocess.CalledProcessError:
-        logger.warning(
-            f"Patch `{patch_name}` appears to be already applied, skipping...",
-        )
+        if reinstall:
+            logger.error(
+                f"Failed to apply patch `{patch_name}` after reinstalling clean package.",
+            )
+        else:
+            logger.warning(
+                f"Patch `{patch_name}` appears to be already applied, skipping...",
+            )
         return
 
     # If dry-run succeeds, apply the patch for real

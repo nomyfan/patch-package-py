@@ -210,6 +210,68 @@ class TestApplyPatch:
 
             assert "already applied" in caplog.text
 
+    def test_apply_patch_reinstall_calls_restore(self, tmp_path: Path):
+        """Test that reinstall=True calls restore_clean_package before patching."""
+        site_packages = self._setup_site_packages(tmp_path, "mypackage", "1.0.0")
+        patch_file = tmp_path / "mypackage+1.0.0.patch"
+        patch_file.write_text(
+            "--- a/mypackage/core.py\n"
+            "+++ b/mypackage/core.py\n"
+            "@@ -1,2 +1,2 @@\n"
+            " def hello():\n"
+            "-    return 'hello'\n"
+            "+    return 'hello world'\n"
+        )
+        env_path = tmp_path / ".venv"
+
+        with patch("subprocess.check_call") as mock_check_call:
+            apply_patch(patch_file, site_packages, env_path=env_path, reinstall=True)
+
+        commands = [call_args.args[0] for call_args in mock_check_call.call_args_list]
+        assert commands[0] == [
+            "uv",
+            "pip",
+            "install",
+            "--force-reinstall",
+            "--no-deps",
+            "mypackage==1.0.0",
+            "--python",
+            str(venv_python(env_path)),
+        ]
+        # dry-run + actual apply should follow
+        assert mock_check_call.call_count == 3
+
+    def test_apply_patch_reinstall_requires_env_path(self, tmp_path: Path):
+        """Test that reinstall=True without env_path raises ValueError."""
+        site_packages = self._setup_site_packages(tmp_path, "mypackage", "1.0.0")
+        patch_file = tmp_path / "mypackage+1.0.0.patch"
+        patch_file.write_text("some patch content")
+
+        with pytest.raises(ValueError, match="env_path is required"):
+            apply_patch(patch_file, site_packages, reinstall=True)
+
+    def test_apply_patch_reinstall_dry_run_failure_logs_error(
+        self, tmp_path: Path, caplog
+    ):
+        """Test that a broken patch after reinstall logs an error (not 'already applied')."""
+        site_packages = self._setup_site_packages(tmp_path, "mypackage", "1.0.0")
+        patch_file = tmp_path / "mypackage+1.0.0.patch"
+        patch_file.write_text("some patch content")
+        env_path = tmp_path / ".venv"
+
+        calls = [None]  # first call (restore) succeeds; second (dry-run) fails
+
+        def side_effect(cmd, *args, **kwargs):
+            if cmd[0] == "uv":
+                return None
+            raise subprocess.CalledProcessError(1, "patch")
+
+        with patch("subprocess.check_call", side_effect=side_effect):
+            apply_patch(patch_file, site_packages, env_path=env_path, reinstall=True)
+
+        assert "already applied" not in caplog.text
+        assert "Failed to apply patch" in caplog.text
+
 
 class TestCommitChanges:
     """Tests for creating patch files via commit_changes."""
