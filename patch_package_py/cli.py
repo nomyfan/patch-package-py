@@ -99,8 +99,8 @@ def cmd_apply(args):
         apply_patch(
             patch_file,
             site_packages_dir,
-            env_path=env_path if args.reinstall else None,
-            reinstall=args.reinstall,
+            env_path=env_path if args.restore else None,
+            restore=args.restore,
         )
 
 
@@ -148,9 +148,9 @@ def cli():
     apply_parser = subparsers.add_parser("apply", help="Apply patches")
     apply_parser.add_argument("-e", "--env-path", help="Environment Path")
     apply_parser.add_argument(
-        "--reinstall",
+        "--restore",
         action="store_true",
-        help="Reinstall the clean package before applying each patch",
+        help="Restore the clean package before applying each patch",
     )
     apply_parser.set_defaults(func=cmd_apply)
 

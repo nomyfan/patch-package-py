@@ -318,7 +318,7 @@ def apply_patch(
     site_packages_dir: Path,
     *,
     env_path: Union[Path, None] = None,
-    reinstall: bool = False,
+    restore: bool = False,
 ) -> None:
     # Parse package name and version from patch file name
     patch_name = patch_file.stem  # Remove .patch extension
@@ -345,9 +345,9 @@ def apply_patch(
             f"Version mismatch: patch is for {package_name}=={version} but installed version is {installed_version}"
         )
 
-    if reinstall:
+    if restore:
         if env_path is None:
-            raise ValueError("env_path is required when reinstall=True")
+            raise ValueError("env_path is required when restore=True")
         restore_clean_package(package_name, version, env_path)
 
     # First, check if the patch is already applied using dry-run
@@ -367,9 +367,9 @@ def apply_patch(
             stdout=subprocess.DEVNULL,
         )
     except subprocess.CalledProcessError:
-        if reinstall:
+        if restore:
             logger.error(
-                f"Failed to apply patch `{patch_name}` after reinstalling clean package.",
+                f"Failed to apply patch `{patch_name}` after restoring clean package.",
             )
         else:
             logger.warning(

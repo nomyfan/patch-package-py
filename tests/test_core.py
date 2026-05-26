@@ -210,8 +210,8 @@ class TestApplyPatch:
 
             assert "already applied" in caplog.text
 
-    def test_apply_patch_reinstall_calls_restore(self, tmp_path: Path):
-        """Test that reinstall=True calls restore_clean_package before patching."""
+    def test_apply_patch_restore_calls_restore(self, tmp_path: Path):
+        """Test that restore=True calls restore_clean_package before patching."""
         site_packages = self._setup_site_packages(tmp_path, "mypackage", "1.0.0")
         patch_file = tmp_path / "mypackage+1.0.0.patch"
         patch_file.write_text(
@@ -225,7 +225,7 @@ class TestApplyPatch:
         env_path = tmp_path / ".venv"
 
         with patch("subprocess.check_call") as mock_check_call:
-            apply_patch(patch_file, site_packages, env_path=env_path, reinstall=True)
+            apply_patch(patch_file, site_packages, env_path=env_path, restore=True)
 
         commands = [call_args.args[0] for call_args in mock_check_call.call_args_list]
         assert commands[0] == [
@@ -241,19 +241,19 @@ class TestApplyPatch:
         # dry-run + actual apply should follow
         assert mock_check_call.call_count == 3
 
-    def test_apply_patch_reinstall_requires_env_path(self, tmp_path: Path):
-        """Test that reinstall=True without env_path raises ValueError."""
+    def test_apply_patch_restore_requires_env_path(self, tmp_path: Path):
+        """Test that restore=True without env_path raises ValueError."""
         site_packages = self._setup_site_packages(tmp_path, "mypackage", "1.0.0")
         patch_file = tmp_path / "mypackage+1.0.0.patch"
         patch_file.write_text("some patch content")
 
         with pytest.raises(ValueError, match="env_path is required"):
-            apply_patch(patch_file, site_packages, reinstall=True)
+            apply_patch(patch_file, site_packages, restore=True)
 
-    def test_apply_patch_reinstall_dry_run_failure_logs_error(
+    def test_apply_patch_restore_dry_run_failure_logs_error(
         self, tmp_path: Path, caplog
     ):
-        """Test that a broken patch after reinstall logs an error (not 'already applied')."""
+        """Test that a broken patch after restore logs an error (not 'already applied')."""
         site_packages = self._setup_site_packages(tmp_path, "mypackage", "1.0.0")
         patch_file = tmp_path / "mypackage+1.0.0.patch"
         patch_file.write_text("some patch content")
@@ -267,7 +267,7 @@ class TestApplyPatch:
             raise subprocess.CalledProcessError(1, "patch")
 
         with patch("subprocess.check_call", side_effect=side_effect):
-            apply_patch(patch_file, site_packages, env_path=env_path, reinstall=True)
+            apply_patch(patch_file, site_packages, env_path=env_path, restore=True)
 
         assert "already applied" not in caplog.text
         assert "Failed to apply patch" in caplog.text
