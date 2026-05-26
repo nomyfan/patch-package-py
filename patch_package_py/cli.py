@@ -140,7 +140,7 @@ def cli():
     commit_parser.add_argument(
         "--skip-restore",
         action="store_true",
-        help="Skip reinstalling the target package before applying the new patch",
+        help="Skip restoring the clean package before applying the new patch",
     )
     commit_parser.set_defaults(func=cmd_commit)
 
