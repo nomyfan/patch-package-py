@@ -175,7 +175,7 @@ class TestCarryOverPatchE2E:
 
 class TestRestoreApplyE2E:
     def test_restore_reinstalls_then_applies_patch(self, tmp_path, monkeypatch, project):
-        """--restore should reinstall the package to a clean state, then apply the patch."""
+        """--restore should restore the package to a clean state, then apply the patch."""
         module_path = project["module_path"]
         version = project["version"]
         target_env = project["target_env"]
@@ -196,7 +196,7 @@ class TestRestoreApplyE2E:
         assert patch_file.exists()
 
         # The patch is now applied in target_env. Apply again with --restore
-        # should succeed (reinstall cleans the already-patched state).
+        # should succeed (restore cleans the already-patched state).
         apply_patch(patch_file, target_env, restore=True)
 
         patched_content = (find_site_packages(target_env) / "six.py").read_text()
