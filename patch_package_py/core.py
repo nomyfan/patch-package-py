@@ -292,9 +292,8 @@ def commit_changes(
     if restore_target_package:
         restore_clean_package(package_name, version, target_env_path)
 
-    current_site_packages = find_site_packages(target_env_path)
     try:
-        apply_patch(patch_file_path, current_site_packages)
+        apply_patch(patch_file_path, target_env_path)
     except subprocess.CalledProcessError:
         msg = "Error: failed to apply the patch after creation."
         if restore_target_package:
@@ -315,9 +314,8 @@ def commit_changes(
 
 def apply_patch(
     patch_file: Path,
-    site_packages_dir: Path,
+    env_path: Path,
     *,
-    env_path: Union[Path, None] = None,
     restore: bool = False,
 ) -> None:
     # Parse package name and version from patch file name
@@ -329,6 +327,8 @@ def apply_patch(
         return
 
     package_name, version = patch_name.rsplit("+", 1)
+
+    site_packages_dir = find_site_packages(env_path)
 
     # Verify the package exists in site_packages_dir with matching version
     resolver = Resolver()
@@ -346,8 +346,6 @@ def apply_patch(
         )
 
     if restore:
-        if env_path is None:
-            raise ValueError("env_path is required when restore=True")
         restore_clean_package(package_name, version, env_path)
 
     # First, check if the patch is already applied using dry-run

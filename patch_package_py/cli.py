@@ -78,10 +78,17 @@ def cmd_apply(args):
     env_path = (
         Path(args.env_path) if args.env_path is not None else Path.cwd() / ".venv"
     )
-    site_packages_dir = find_site_packages(env_path)
 
     if not patches_dir.exists():
         return
+
+    try:
+        site_packages_dir = find_site_packages(env_path)
+    except FileNotFoundError:
+        logger.error(
+            f"Error: Could not determine site-packages directory for {env_path}",
+        )
+        sys.exit(1)
 
     if not site_packages_dir.exists():
         logger.error(
@@ -98,8 +105,7 @@ def cmd_apply(args):
     for patch_file in patch_files:
         apply_patch(
             patch_file,
-            site_packages_dir,
-            env_path=env_path if args.restore else None,
+            env_path,
             restore=args.restore,
         )
 

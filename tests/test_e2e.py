@@ -197,8 +197,7 @@ class TestRestoreApplyE2E:
 
         # The patch is now applied in target_env. Apply again with --restore
         # should succeed (reinstall cleans the already-patched state).
-        site_packages = find_site_packages(target_env)
-        apply_patch(patch_file, site_packages, env_path=target_env, restore=True)
+        apply_patch(patch_file, target_env, restore=True)
 
-        patched_content = (site_packages / "six.py").read_text()
+        patched_content = (find_site_packages(target_env) / "six.py").read_text()
         assert "# restore-e2e-marker" in patched_content

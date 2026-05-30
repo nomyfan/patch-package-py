@@ -125,10 +125,14 @@ class TestResolver:
 class TestApplyPatch:
     """Integration tests for the apply_patch workflow."""
 
-    def _setup_site_packages(self, tmp_path: Path, package_name: str, version: str):
-        """Helper to create a mock site-packages with a package installed."""
-        site_packages = tmp_path / "site-packages"
-        site_packages.mkdir()
+    def _setup_env(self, tmp_path: Path, package_name: str, version: str):
+        """Helper to create a mock venv with a package installed."""
+        env_path = tmp_path / ".venv"
+        if os.name == "nt":
+            site_packages = env_path / "Lib" / "site-packages"
+        else:
+            site_packages = env_path / "lib" / "python3.9" / "site-packages"
+        site_packages.mkdir(parents=True)
 
         # Create dist-info
         dist_info = (
@@ -146,40 +150,40 @@ class TestApplyPatch:
         (pkg_dir / "__init__.py").write_text('__version__ = "1.0.0"\n')
         (pkg_dir / "core.py").write_text("def hello():\n    return 'hello'\n")
 
-        return site_packages
+        return env_path
 
     def test_apply_patch_invalid_name_format(self, tmp_path: Path, caplog):
         """Test that invalid patch file name is skipped."""
-        site_packages = self._setup_site_packages(tmp_path, "mypackage", "1.0.0")
+        env_path = self._setup_env(tmp_path, "mypackage", "1.0.0")
         patch_file = tmp_path / "invalid_name.patch"
         patch_file.write_text("some patch content")
 
-        apply_patch(patch_file, site_packages)
+        apply_patch(patch_file, env_path)
 
         assert "Invalid patch file name format" in caplog.text
 
     def test_apply_patch_package_not_found(self, tmp_path: Path, caplog):
         """Test that missing package is skipped."""
-        site_packages = self._setup_site_packages(tmp_path, "mypackage", "1.0.0")
+        env_path = self._setup_env(tmp_path, "mypackage", "1.0.0")
         patch_file = tmp_path / "otherpackage+1.0.0.patch"
         patch_file.write_text("some patch content")
 
-        apply_patch(patch_file, site_packages)
+        apply_patch(patch_file, env_path)
 
         assert "not found in site-packages" in caplog.text
 
     def test_apply_patch_version_mismatch(self, tmp_path: Path):
         """Test that version mismatch raises error."""
-        site_packages = self._setup_site_packages(tmp_path, "mypackage", "1.0.0")
+        env_path = self._setup_env(tmp_path, "mypackage", "1.0.0")
         patch_file = tmp_path / "mypackage+2.0.0.patch"
         patch_file.write_text("some patch content")
 
         with pytest.raises(ValueError, match="Version mismatch"):
-            apply_patch(patch_file, site_packages)
+            apply_patch(patch_file, env_path)
 
     def test_apply_patch_success(self, tmp_path: Path):
         """Test successful patch application."""
-        site_packages = self._setup_site_packages(tmp_path, "mypackage", "1.0.0")
+        env_path = self._setup_env(tmp_path, "mypackage", "1.0.0")
         patch_file = tmp_path / "mypackage+1.0.0.patch"
         patch_file.write_text(
             "--- a/mypackage/core.py\n"
@@ -191,40 +195,29 @@ class TestApplyPatch:
         )
 
         with patch("subprocess.check_call") as mock_check_call:
-            apply_patch(patch_file, site_packages)
+            apply_patch(patch_file, env_path)
 
             # Should be called twice: dry-run and actual apply
             assert mock_check_call.call_count == 2
 
     def test_apply_patch_already_applied(self, tmp_path: Path, caplog):
         """Test that already applied patch is skipped."""
-        site_packages = self._setup_site_packages(tmp_path, "mypackage", "1.0.0")
+        env_path = self._setup_env(tmp_path, "mypackage", "1.0.0")
         patch_file = tmp_path / "mypackage+1.0.0.patch"
         patch_file.write_text("some patch content")
 
         with patch("subprocess.check_call") as mock_check_call:
-            # Simulate dry-run failure (patch already applied)
             mock_check_call.side_effect = subprocess.CalledProcessError(1, "patch")
 
-            apply_patch(patch_file, site_packages)
+            apply_patch(patch_file, env_path)
 
             assert "already applied" in caplog.text
 
-    def test_apply_patch_restore_requires_env_path(self, tmp_path: Path):
-        """Test that restore=True without env_path raises ValueError."""
-        site_packages = self._setup_site_packages(tmp_path, "mypackage", "1.0.0")
-        patch_file = tmp_path / "mypackage+1.0.0.patch"
-        patch_file.write_text("some patch content")
-
-        with pytest.raises(ValueError, match="env_path is required"):
-            apply_patch(patch_file, site_packages, restore=True)
-
     def test_apply_patch_restore_dry_run_failure_raises(self, tmp_path: Path):
         """Test that a broken patch after restore raises RuntimeError (non-zero exit)."""
-        site_packages = self._setup_site_packages(tmp_path, "mypackage", "1.0.0")
+        env_path = self._setup_env(tmp_path, "mypackage", "1.0.0")
         patch_file = tmp_path / "mypackage+1.0.0.patch"
         patch_file.write_text("some patch content")
-        env_path = tmp_path / ".venv"
 
         def side_effect(cmd, *args, **kwargs):
             if cmd[0] == "uv":
@@ -235,14 +228,13 @@ class TestApplyPatch:
             patch("subprocess.check_call", side_effect=side_effect),
             pytest.raises(RuntimeError, match="Failed to apply patch"),
         ):
-            apply_patch(patch_file, site_packages, env_path=env_path, restore=True)
+            apply_patch(patch_file, env_path, restore=True)
 
     def test_apply_patch_restore_real_apply_failure_raises(self, tmp_path: Path):
         """Test that a real apply failure after successful dry-run raises RuntimeError."""
-        site_packages = self._setup_site_packages(tmp_path, "mypackage", "1.0.0")
+        env_path = self._setup_env(tmp_path, "mypackage", "1.0.0")
         patch_file = tmp_path / "mypackage+1.0.0.patch"
         patch_file.write_text("some patch content")
-        env_path = tmp_path / ".venv"
 
         call_count = 0
 
@@ -260,7 +252,7 @@ class TestApplyPatch:
             patch("subprocess.check_call", side_effect=side_effect),
             pytest.raises(RuntimeError, match="Failed to apply patch"),
         ):
-            apply_patch(patch_file, site_packages, env_path=env_path, restore=True)
+            apply_patch(patch_file, env_path, restore=True)
 
 
 class TestCommitChanges:
